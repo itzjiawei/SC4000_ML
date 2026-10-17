@@ -1,43 +1,70 @@
+
 # March Machine Learning Mania 2026
 
 SC4000 Machine Learning Group Project.
 
-## Project Structure
+Our objective is to predict the probability that one team defeats another in the NCAA men's and women's tournaments.
 
-- `data/raw/` - Original Kaggle competition data
-- `data/processed/` - Feature-engineered datasets
-- `notebooks/` - Feature engineering and model experiments
-- `submissions/` - Kaggle submission files
+The primary evaluation metric is **Brier score**, where lower is better.
 
-## Current Modelling Progress
+## 1. Project Structure
 
-### 1. Shared Feature Dataset
+```text
+SC4000_ML/
+├── data/
+│   ├── raw/                  # Original Kaggle datasets
+│   └── processed/            # Shared feature-engineered datasets
+├── notebooks/                # Feature engineering and model experiments
+├── results/                  # Experiment results
+├── submissions/              # Kaggle submission files
+├── requirements.txt
+└── README.md
+```
 
-The initial processed tournament datasets contain four engineered matchup
-features:
+Men's and women's models are trained and evaluated separately.
 
-1. `SeedDiff`
-2. `AvgScoringMarginDiff`
-3. `WinRateDiff`
-4. `EFGDifferentialDiff`
-
-Each row represents one historical NCAA tournament matchup.
-
-- `Team1` = team with the lower TeamID
-- `Team2` = team with the higher TeamID
-- `Target = 1` if Team1 won
-- `Target = 0` if Team2 won
-
-The men's dataset begins from 2003 and the women's dataset begins from 2010
-because these are the periods covered by the detailed regular-season data
-used to construct the features.
+Regular-season results are used to construct team statistics and strength ratings. Historical NCAA tournament results provide the target labels for our current supervised models.
 
 ---
 
-### 2. Validation Strategy
+## 2. Shared Dataset Conventions
 
-Models should be compared using expanding-window temporal cross-validation
-rather than a random train/test split.
+Each row in a processed tournament matchup dataset represents one historical NCAA tournament game.
+
+### Team ordering and target
+
+- `Season`: Tournament year
+- `Team1`: Team with the lower numeric TeamID
+- `Team2`: Team with the higher numeric TeamID
+- `Target = 1`: Team1 won
+- `Target = 0`: Team2 won
+
+### Original four features
+
+| Feature | Description |
+|---|---|
+| `SeedDiff` | Difference in tournament seeding |
+| `AvgScoringMarginDiff` | Difference in average regular-season scoring margins |
+| `WinRateDiff` | Difference in regular-season win rates |
+| `EFGDifferentialDiff` | Difference in effective field goal percentage differentials |
+
+All difference features follow:
+
+`Team1 - Team2`
+
+**Important sign conventions:**
+
+- Negative `SeedDiff` means Team1 has the better seed.
+- Negative `MasseyRankDiff` means Team1 has the better ranking.
+- Positive scoring margin, win rate, eFG, Net Rating, Adjusted Strength and Elo differences generally favor Team1.
+
+For classification models, use the predicted probability of `Target = 1`, not the predicted class label.
+
+---
+
+## 3. Shared Validation Strategy
+
+All group members should use **expanding-window temporal cross-validation** to ensure model results are comparable.
 
 Current validation seasons:
 
@@ -46,81 +73,122 @@ Current validation seasons:
 - 2019
 - 2021
 
-For each validation season, the model is trained using all available earlier
-seasons.
+For each validation year, train using all available earlier tournament seasons.
 
-For example:
+| Validation Season | Men's Training Seasons | Women's Training Seasons |
+|---|---|---|
+| 2017 | 2003–2016 | 2010–2016 |
+| 2018 | 2003–2017 | 2010–2017 |
+| 2019 | 2003–2018 | 2010–2018 |
+| 2021 | 2003–2019 | 2010–2019 |
 
-| Validation Season | Men's Training Seasons |
+The 2020 NCAA tournament was cancelled.
+
+### Brier score
+
+\[
+\text{Brier Score} = \frac{1}{N}\sum_{i=1}^{N}(p_i-y_i)^2
+\]
+
+Where:
+
+- `p_i` is the predicted probability that Team1 wins.
+- `y_i` is the actual outcome, either 0 or 1.
+
+Report individual validation-season Brier scores and their unweighted mean.
+
+### Historical holdout: 2022–2025
+
+We also evaluated models on tournaments from 2022–2025, training on historical tournaments up to 2021.
+
+However, this holdout has already been examined repeatedly during feature development. It should therefore be treated as a **retrospective diagnostic**, not a completely untouched test set.
+
+Avoid repeatedly selecting features, hyperparameters or calibration methods based on its results.
+
+---
+
+## 4. Processed Datasets
+
+All processed datasets are stored in:
+
+`data/processed/`
+
+There are two main dataset types:
+
+1. **Matchup-level datasets:** One row per tournament matchup, containing Team1, Team2, features and Target. These are ready for model training.
+2. **Team-season-level datasets:** One row per team per season. These must be merged onto the tournament matchup dataset for both Team1 and Team2 before training.
+
+Do not concatenate different processed datasets vertically. They often represent the same historical games with different engineered features.
+
+### 4.1 Original Four-Feature Datasets
+
+| File | Description |
 |---|---|
-| 2017 | 2003–2016 |
-| 2018 | 2003–2017 |
-| 2019 | 2003–2018 |
-| 2021 | 2003–2019 |
+| `men_processed.csv` | Men's tournament matchups with original four features |
+| `women_processed.csv` | Women's tournament matchups with original four features |
 
-2020 is excluded because the NCAA tournament was cancelled.
+Columns:
 
-Please use the same temporal validation setup when comparing models or feature
-sets so that results remain directly comparable across group members.
+- `Season`
+- `Team1`
+- `Team2`
+- `SeedDiff`
+- `AvgScoringMarginDiff`
+- `WinRateDiff`
+- `EFGDifferentialDiff`
+- `Target`
 
-The primary evaluation metric is Brier score, where lower is better.
+**Usage:** Start with these datasets when building a baseline model.
 
----
+These datasets contain 1,449 men's tournament games and 961 women's tournament games, respectively.
 
-### 3. XGBoost Four-Feature Baseline
+Generated by:
 
-Using the original four features, the current tuned XGBoost temporal CV
-results are:
+`notebooks/feature_engineering.ipynb`
 
-| Dataset | Mean CV Brier |
-|---|---:|
-| Men | 0.191705 |
-| Women | 0.146503 |
+### 4.2 Elo Rating Datasets
 
-These provide a reference point when evaluating additional features.
+| File | Description |
+|---|---|
+| `men_elo.csv` | Final regular-season Elo ratings for men's teams |
+| `women_elo.csv` | Final regular-season Elo ratings for women's teams |
 
----
+Columns:
 
-### 4. Elo Feature Engineering
-
-Elo ratings were generated separately for men's and women's regular-season
-games.
-
-Rather than selecting the K-factor using the same full historical dataset,
-candidate K values were first compared using earlier development seasons and
-then evaluated on more recent validation seasons.
+- `Season`
+- `TeamID`
+- `FinalElo`
 
 Selected K-factors:
 
 - Men: `K = 60`
 - Women: `K = 100`
 
-The resulting Elo files contain the final regular-season Elo rating for each
-team in each season.
+These are **team-season-level datasets**, not matchup-level datasets.
 
-Elo feature ablation using XGBoost:
+To use Elo, merge ratings onto Team1 and Team2, then calculate:
 
-| Feature Set | Men Mean CV Brier | Women Mean CV Brier |
-|---|---:|---:|
-| Original 4 | 0.191705 | 0.146503 |
-| Elo only | 0.228909 | 0.203368 |
-| Original 4 + Elo | 0.198060 | 0.149180 |
+`EloDiff = Team1Elo - Team2Elo`
 
-Although Elo alone contained predictive information, adding `EloDiff` to the
-existing four-feature XGBoost model increased validation Brier for both men
-and women.
+Positive `EloDiff` indicates Team1 has the higher Elo rating.
 
-Elo is therefore not currently retained in the candidate XGBoost feature
-sets.
+Generated by:
 
----
+`notebooks/elo_feature_engineering.ipynb`
 
-### 5. Massey Ordinals Feature Engineering
+### 4.3 Massey Ordinals Dataset
 
-Massey Ordinals are available for the men's competition.
+| File | Description |
+|---|---|
+| `men_massey.csv` | Men's matchup dataset with five-system Massey consensus rankings |
 
-A pre-tournament consensus ranking was constructed using five ranking systems
-with full historical coverage:
+Contains the original four features, together with:
+
+- `Team1MasseyRank`
+- `Team2MasseyRank`
+- `MasseyRankDiff`
+
+The consensus uses five ranking systems:
 
 - COL
 - DOL
@@ -128,260 +196,742 @@ with full historical coverage:
 - POM
 - WLK
 
-For each team and season, the latest available ranking on or before Day 133
-was obtained from each system.
+For every season, system and team, the latest ranking on or before `RankingDayNum = 133` is selected.
 
-The five ordinal rankings were averaged:
+Each team's consensus rank is the mean of these five ordinal rankings.
 
-`ConsensusRank = mean(COL, DOL, MOR, POM, WLK)`
-
-All historical NCAA tournament team-seasons used by the model had rankings
-from all five systems.
-
-The matchup-level feature is:
+The raw matchup feature is:
 
 `MasseyRankDiff = Team1MasseyRank - Team2MasseyRank`
 
-Because a lower ordinal ranking represents a stronger team:
+#### Log-transformed Massey ranking
 
-- Negative `MasseyRankDiff` → Team1 is ranked stronger
-- Positive `MasseyRankDiff` → Team2 is ranked stronger
+A more promising feature from recent experiments is:
 
-Men's feature ablation:
+`LogMasseyRankDiff = ln(Team1MasseyRank) - ln(Team2MasseyRank)`
 
-| Feature Set | Mean CV Brier |
+This captures relative differences in consensus rankings rather than raw differences in ranking positions.
+
+**Important:** `LogMasseyRankDiff` is not originally stored in `men_massey.csv`. It can be calculated directly using the two existing ranking columns.
+
+There is currently no corresponding women's Massey dataset in our pipeline.
+
+Generated by:
+
+`notebooks/massey_feature_engineering.ipynb`
+
+### 4.4 Net Rating Datasets
+
+Net Rating measures a team's scoring efficiency per estimated 100 possessions.
+
+The underlying measures are:
+
+- `OffRating`: Points scored per 100 estimated possessions
+- `DefRating`: Points allowed per 100 estimated possessions
+- `NetRating`: Offensive Rating minus Defensive Rating
+
+A higher Net Rating generally indicates stronger team performance.
+
+Possessions are estimated from regular-season detailed box-score statistics.
+
+#### Team-season datasets
+
+| File | Description |
+|---|---|
+| `men_netrating_team_season.csv` | Men's team-level offensive, defensive and net ratings |
+| `women_netrating_team_season.csv` | Women's equivalent |
+
+These contain:
+
+- `Season`
+- `TeamID`
+- `OffRating`
+- `DefRating`
+- `NetRating`
+
+#### Matchup-level datasets
+
+| File | Description |
+|---|---|
+| `men_netrating_merged.csv` | Men's original four features plus Net Rating |
+| `women_netrating_merged.csv` | Women's original four features plus Net Rating |
+
+Additional columns include:
+
+- `Team1NetRating`
+- `Team2NetRating`
+- `NetRatingDiff`
+
+The matchup feature is:
+
+`NetRatingDiff = Team1NetRating - Team2NetRating`
+
+These merged files can be used directly for model experiments without performing additional joins.
+
+Generated by:
+
+`notebooks/advanced_feature_engineering.ipynb`
+
+### 4.5 Adjusted Strength Datasets
+
+Adjusted Strength attempts to estimate team strength while accounting for:
+
+- Opponent quality
+- Home-court advantage
+- Away-game disadvantage
+- Neutral venues
+
+The ratings were estimated using ridge regression on regular-season game results and scoring margins.
+
+#### Team-season datasets
+
+| File | Description |
+|---|---|
+| `men_adjusted_strength_team_season.csv` | Men's adjusted team-strength ratings |
+| `women_adjusted_strength_team_season.csv` | Women's adjusted team-strength ratings |
+
+#### Matchup-level datasets
+
+| File | Description |
+|---|---|
+| `men_advanced_merged.csv` | Men's original features, Net Rating and Adjusted Strength |
+| `women_advanced_merged.csv` | Women's equivalent |
+
+These matchup files contain:
+
+- The original four features
+- Individual team Net Ratings
+- `NetRatingDiff`
+- Individual adjusted-strength ratings
+- `AdjustedStrengthDiff`
+
+The main additional feature is:
+
+`AdjustedStrengthDiff = Team1AdjustedStrength - Team2AdjustedStrength`
+
+These datasets are provided for experimentation. The presence of additional feature columns does not mean every column should be included automatically.
+
+Generated by:
+
+`notebooks/advanced_feature_engineering.ipynb`
+
+### 4.6 Experimental Broad Massey Dataset
+
+| File | Description |
+|---|---|
+| `men_broad_massey.csv` | Experimental men's matchup dataset containing broader Massey consensus features |
+
+The purpose is to investigate whether averaging more ranking systems improves predictions compared with the original five systems.
+
+Features include variants such as:
+
+- `BroadMeanRankDiff`
+- `BroadMedianRankDiff`
+- `BroadMeanLogDiff`
+- `BroadMedianLogDiff`
+
+The exact columns depend on the latest notebook execution.
+
+**Experiment status:** The initial attempt to expand the number of systems imposed complete historical and 2026 coverage. This selected only the original five ranking systems, so `BroadMeanRankDiff` was effectively identical to `MasseyRankDiff`.
+
+We subsequently revised the coverage rule to consider systems with at least 95% historical tournament-team coverage.
+
+A confirmed Brier result from a genuinely broader selection has not yet been established.
+
+Before using this dataset, verify the selected ranking systems and coverage statistics in the generating notebook.
+
+Generated by:
+
+`notebooks/massey_consensus_experiments.ipynb`
+
+---
+
+## 5. How to Use the Processed Features
+
+### 5.1 Load the Original Dataset
+
+```python
+import pandas as pd
+
+men = pd.read_csv("../data/processed/men_processed.csv")
+women = pd.read_csv("../data/processed/women_processed.csv")
+
+base_features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff"
+]
+
+X = men[base_features]
+y = men["Target"]
+```
+
+### 5.2 Test Net Rating
+
+Net Rating is already merged into the matchup dataset.
+
+```python
+men = pd.read_csv(
+    "../data/processed/men_netrating_merged.csv"
+)
+
+base_features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff"
+]
+
+# Experiment A: Original four features
+features_A = base_features
+
+# Experiment B: Replace scoring margin with Net Rating
+features_B = [
+    "SeedDiff",
+    "NetRatingDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff"
+]
+
+# Experiment C: Add Net Rating as a fifth feature
+features_C = base_features + ["NetRatingDiff"]
+```
+
+The corresponding women's dataset can be used in the same way.
+
+### 5.3 Test Log Massey Rankings
+
+```python
+import numpy as np
+import pandas as pd
+
+men = pd.read_csv(
+    "../data/processed/men_massey.csv"
+)
+
+men["LogMasseyRankDiff"] = (
+    np.log(men["Team1MasseyRank"])
+    - np.log(men["Team2MasseyRank"])
+)
+
+base_features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff"
+]
+
+features_raw_massey = base_features + [
+    "MasseyRankDiff"
+]
+
+features_log_massey = base_features + [
+    "LogMasseyRankDiff"
+]
+```
+
+The calculation uses the logarithm of each team's consensus ranking before subtraction.
+
+Do not take the absolute value because the sign indicates which team is ranked better.
+
+### 5.4 Merge Elo Onto Matchup Data
+
+```python
+import pandas as pd
+
+matchups = pd.read_csv(
+    "../data/processed/men_processed.csv"
+)
+
+elo = pd.read_csv(
+    "../data/processed/men_elo.csv"
+)
+
+team1_elo = elo.rename(columns={
+    "TeamID": "Team1",
+    "FinalElo": "Team1Elo"
+})
+
+team2_elo = elo.rename(columns={
+    "TeamID": "Team2",
+    "FinalElo": "Team2Elo"
+})
+
+matchups = matchups.merge(
+    team1_elo,
+    on=["Season", "Team1"],
+    how="left",
+    validate="many_to_one"
+)
+
+matchups = matchups.merge(
+    team2_elo,
+    on=["Season", "Team2"],
+    how="left",
+    validate="many_to_one"
+)
+
+assert matchups[
+    ["Team1Elo", "Team2Elo"]
+].notna().all().all()
+
+matchups["EloDiff"] = (
+    matchups["Team1Elo"]
+    - matchups["Team2Elo"]
+)
+```
+
+For women, replace the men's file paths with:
+
+- `women_processed.csv`
+- `women_elo.csv`
+
+### 5.5 Use Advanced Features
+
+For Net Rating and Adjusted Strength experiments:
+
+```python
+men = pd.read_csv(
+    "../data/processed/men_advanced_merged.csv"
+)
+
+features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff",
+    "AdjustedStrengthDiff"
+]
+```
+
+You can also test:
+
+- Original four + `NetRatingDiff`
+- Original four + `AdjustedStrengthDiff`
+- Original four + both
+- Replace `AvgScoringMarginDiff` with `NetRatingDiff`
+
+Select the desired columns explicitly.
+
+### 5.6 Temporal Cross-Validation Template
+
+```python
+from sklearn.metrics import brier_score_loss
+
+validation_years = [2017, 2018, 2019, 2021]
+
+scores = []
+
+for year in validation_years:
+
+    train = men[men["Season"] < year]
+    valid = men[men["Season"] == year]
+
+    X_train = train[features]
+    y_train = train["Target"]
+
+    X_valid = valid[features]
+    y_valid = valid["Target"]
+
+    # Create a fresh estimator for each fold
+    model = YourModelHere()
+
+    model.fit(X_train, y_train)
+
+    predictions = model.predict_proba(X_valid)[:, 1]
+
+    score = brier_score_loss(
+        y_valid,
+        predictions
+    )
+
+    scores.append(score)
+
+    print(f"{year}: {score:.6f}")
+
+print("Mean CV Brier:", sum(scores) / len(scores))
+```
+
+Replace `YourModelHere()` with the chosen classifier.
+
+For Logistic Regression, use a pipeline with `StandardScaler` fitted only on each training fold.
+
+For Decision Trees, Random Forests, Gradient Boosting and other algorithms, use their own appropriate complexity controls.
+
+**Important:** Each teammate should independently test whether the additional features help their own algorithm. Results from XGBoost do not necessarily transfer to other models.
+
+---
+
+## 6. Feature Engineering Experiment Results
+
+The results below are from our XGBoost experiments.
+
+All mean CV Brier scores use the same validation seasons:
+
+2017, 2018, 2019 and 2021.
+
+The reported holdout uses tournaments from 2022–2025, with training restricted to seasons through 2021.
+
+### 6.1 Original Four-Feature Reference
+
+| Model | Mean CV Brier |
+|---|---:|
+| Men's tuned XGBoost | 0.191705 |
+| Women's tuned XGBoost | 0.146503 |
+
+These are our reference scores for evaluating feature-engineering changes.
+
+### 6.2 Elo Results
+
+| Feature Configuration | Men CV Brier | Women CV Brier |
+|---|---:|---:|
+| Original 4 | 0.191705 | 0.146503 |
+| Elo only | 0.228909 | 0.203368 |
+| Original 4 + Elo | 0.198060 | 0.149180 |
+
+Adding Elo increased validation Brier for both models.
+
+Therefore, Elo is not currently included in our preferred XGBoost feature sets.
+
+It remains available for experimentation with other algorithms.
+
+### 6.3 Men's Net Rating Results
+
+| Feature Configuration | Mean CV Brier | 2022–2025 Holdout Brier |
+|---|---:|---:|
+| Original 4 | 0.191705 | 0.212890 |
+| Replace scoring margin with Net Rating | 0.190047 | **0.212351** |
+| Original 4 + Net Rating | 0.192242 | 0.212834 |
+
+Replacing average scoring margin with Net Rating improved validation Brier slightly.
+
+It also marginally improved holdout Brier from 0.212890 to 0.212351.
+
+However, the improvement was inconsistent across seasons:
+
+- Improved 2022 and 2023 predictions
+- Worsened 2024 and 2025 predictions
+
+The overall holdout improvement was only 0.000539.
+
+Net Rating also measures information similar to average scoring margin, so adding both features may provide limited additional value.
+
+**Conclusion:** Net Rating is a reasonable alternative to scoring margin but has not demonstrated a sufficiently large or consistent improvement to prioritize it over our current preferred feature set.
+
+### 6.4 Adjusted Strength Results
+
+#### Men
+
+| Feature Configuration | Mean CV Brier | 2022–2025 Holdout Brier |
+|---|---:|---:|
+| Original 4 | 0.191705 | 0.212890 |
+| Original 4 + Adjusted Strength | 0.186785 | Not separately tested |
+| Net Rating replacement + Adjusted Strength | 0.185850 | 0.215652 |
+
+Adjusted Strength improved development CV performance.
+
+However, combining it with the Net Rating replacement produced worse holdout Brier than the original four-feature model.
+
+The standalone Adjusted Strength configuration was not separately tested on holdout.
+
+This suggests that the observed CV improvements from the combined configuration did not generalize reliably to later tournaments.
+
+#### Women
+
+| Feature Configuration | Mean CV Brier |
+|---|---:|
+| Original 4 | 0.146503 |
+| Original 4 + Adjusted Strength | 0.148985 |
+| Original 4 + Net Rating + Adjusted Strength | 0.149159 |
+
+Both configurations performed worse than the original four features in development CV.
+
+### 6.5 Women's Net Rating Results
+
+| Feature Configuration | Mean CV Brier | 2022–2025 Holdout Brier |
+|---|---:|---:|
+| Original 4 | 0.146503 | **0.145337** |
+| Replace scoring margin with Net Rating | 0.148292 | Not separately tested |
+| Original 4 + Net Rating | **0.144865** | 0.148266 |
+
+Adding Net Rating improved women's development CV Brier.
+
+However, the later holdout Brier worsened, including deterioration in all four holdout seasons.
+
+Therefore, the original four features remain the preferred women's development configuration.
+
+### 6.6 Massey Ordinals Results
+
+We evaluated the original five-system ranking consensus using both raw and log-transformed differences.
+
+| Feature Configuration | Men's Mean CV Brier |
 |---|---:|
 | Original 4 | 0.191705 |
-| Elo only | 0.228909 |
-| Massey only | 0.197365 |
-| Original 4 + Elo | 0.198060 |
-| Original 4 + Massey | 0.189886 |
-| Original 4 + Massey + Elo | 0.197026 |
+| Original 4 + raw Massey difference | 0.189886 |
+| **Original 4 + log Massey difference** | **0.180918** |
 
-The current candidate men's feature set therefore includes
-`MasseyRankDiff` but excludes `EloDiff`.
+The log-transformed ranking difference produced the strongest men's development CV result so far.
 
-The improvement from Massey is modest and varies across validation seasons,
-so it should not be interpreted as a large or universal improvement.
+Compared with the original four-feature model, it reduced mean CV Brier by approximately 0.0108.
 
----
+It also improved over the original four features in all four validation seasons.
 
-## Current Processed Files
+This suggests that relative ranking differences may capture useful team-strength information not represented by raw ranking differences.
 
-All processed datasets are stored under:
+However, this configuration has not yet been independently evaluated on a fresh holdout and should not be treated as a proven generalization improvement.
 
-`data/processed/`
+### 6.7 Broader Massey Consensus Experiment
 
-### `men_processed.csv`
+We also investigated whether averaging more ranking systems would improve predictions.
 
-Men's historical NCAA tournament matchup dataset containing the original
-four engineered features.
+The initial experiment compared:
 
-Each row represents one tournament game.
+- Five-system raw mean ranking difference
+- Five-system log mean ranking difference
+- Broad raw mean ranking difference
+- Broad raw median ranking difference
 
-Main columns:
+Initial results:
 
-- `Season`
-- `Team1`
-- `Team2`
-- `SeedDiff`
-- `AvgScoringMarginDiff`
-- `WinRateDiff`
-- `EFGDifferentialDiff`
-- `Target`
+| Experiment | Mean CV Brier |
+|---|---:|
+| Five-system raw mean | 0.189886 |
+| Five-system log mean | **0.180918** |
+| Initial broad raw mean | 0.189886 |
+| Initial broad raw median | 0.190751 |
 
-Use this file if you want to train or evaluate a men's model using the
-original shared four-feature baseline.
+**Important limitation:** The initial broad-ranking selection required complete historical and 2026 ranking coverage.
 
----
+As a result, only the original five systems qualified.
 
-### `women_processed.csv`
+Therefore, the initial broad raw mean was mathematically equivalent to the original five-system raw mean.
 
-Women's historical NCAA tournament matchup dataset containing the same
-original four engineered features.
+We subsequently modified the eligibility requirement to allow ranking systems with at least 95% historical tournament-team coverage.
 
-Each row represents one tournament game.
-
-Main columns:
-
-- `Season`
-- `Team1`
-- `Team2`
-- `SeedDiff`
-- `AvgScoringMarginDiff`
-- `WinRateDiff`
-- `EFGDifferentialDiff`
-- `Target`
-
-Use this file if you want to train or evaluate a women's model using the
-original shared four-feature baseline.
+The actual broad-system count and updated CV performance should be checked before drawing conclusions about whether averaging more systems is beneficial.
 
 ---
 
-### `men_elo.csv`
-
-Team-season-level men's Elo ratings.
-
-Main columns:
-
-- `Season`
-- `TeamID`
-- `FinalElo`
-
-This is NOT directly a tournament matchup dataset.
-
-To use Elo in a model:
-
-1. Merge `FinalElo` onto the matchup dataset using `Season` and `Team1`.
-2. Merge it again using `Season` and `Team2`.
-3. Calculate:
-
-   `EloDiff = Team1Elo - Team2Elo`
-
-Positive `EloDiff` means Team1 has the higher Elo rating.
-
-The selected men's Elo K-factor is `K = 60`.
-
----
-
-### `women_elo.csv`
-
-Team-season-level women's Elo ratings.
-
-Main columns:
-
-- `Season`
-- `TeamID`
-- `FinalElo`
-
-This is NOT directly a tournament matchup dataset.
-
-To use Elo:
-
-1. Merge `FinalElo` onto the matchup dataset for Team1.
-2. Merge it again for Team2.
-3. Calculate:
-
-   `EloDiff = Team1Elo - Team2Elo`
-
-Positive `EloDiff` means Team1 has the higher Elo rating.
-
-The selected women's Elo K-factor is `K = 100`.
-
----
-
-### `men_massey.csv`
-
-Men's historical NCAA tournament matchup dataset with the consensus Massey
-feature already merged.
-
-It contains the original four features together with:
-
-- `Team1MasseyRank`
-- `Team2MasseyRank`
-- `MasseyRankDiff`
-
-This file can therefore be used directly for models that want to test the
-Massey feature.
-
-There is currently no equivalent women's Massey feature in our modelling
-pipeline.
-
----
-
-## Which Dataset Should I Use?
-
-For the shared four-feature baseline:
-
-| Task | File |
-|---|---|
-| Men's model | `men_processed.csv` |
-| Women's model | `women_processed.csv` |
-
-For experiments involving Elo:
-
-| Task | Base File | Additional File |
-|---|---|---|
-| Men's model + Elo | `men_processed.csv` | `men_elo.csv` |
-| Women's model + Elo | `women_processed.csv` | `women_elo.csv` |
-
-Remember that the Elo files are team-season-level files and must first be
-merged onto Team1 and Team2 to construct `EloDiff`.
-
-For men's experiments involving Massey:
-
-`men_massey.csv`
-
-already contains the original four features and `MasseyRankDiff`, so no
-additional Massey merge is required.
-
-For fair model comparisons, start from the same processed data and use the
-same temporal validation seasons.
-
----
-
-## Current Candidate XGBoost Feature Sets
+## 7. Current Development Feature Candidates
 
 ### Men
 
-Current candidate features:
+Current leading candidate:
 
-- `SeedDiff`
-- `AvgScoringMarginDiff`
-- `WinRateDiff`
-- `EFGDifferentialDiff`
-- `MasseyRankDiff`
+```python
+men_features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff",
+    "LogMasseyRankDiff"
+]
+```
 
-Current mean temporal CV Brier: `0.189886`
+Mean development CV Brier:
+
+**0.180918**
+
+The log Massey feature uses the average rankings from COL, DOL, MOR, POM and WLK.
 
 ### Women
 
-Current candidate features:
+Current preferred candidate:
 
-- `SeedDiff`
-- `AvgScoringMarginDiff`
-- `WinRateDiff`
-- `EFGDifferentialDiff`
+```python
+women_features = [
+    "SeedDiff",
+    "AvgScoringMarginDiff",
+    "WinRateDiff",
+    "EFGDifferentialDiff"
+]
+```
 
-Current mean temporal CV Brier: `0.146503`
+Mean development CV Brier:
 
-Elo is currently excluded from both candidate XGBoost feature sets based on
-the temporal CV ablation results.
+**0.146503**
 
----
+### Important
 
-## Feature Engineering Notebooks
+These are the current **XGBoost development candidates**, not mandatory feature sets for every model.
 
-The feature construction can be reproduced from:
+Other group members should use the processed datasets to compare feature combinations with their own algorithms.
 
-- `notebooks/feature_engineering.ipynb`
-  - Original four features
-  - Historical tournament matchup datasets
-
-- `notebooks/elo_feature_engineering.ipynb`
-  - Elo K-factor evaluation
-  - Men's and women's final team-season Elo ratings
-
-- `notebooks/massey_feature_engineering.ipynb`
-  - Pre-tournament Massey rankings
-  - Five-system consensus ranking
-  - `MasseyRankDiff`
-
-The XGBoost experiments and feature ablations are contained in:
-
-- `notebooks/xgboost.ipynb`
+The best feature set for XGBoost may not be the best for Logistic Regression, Decision Trees, Random Forest or Gradient Boosting.
 
 ---
 
-## Next Steps
+## 8. Next Steps: Improving Generalization
 
-1. Perform a small hyperparameter sensitivity check for the five-feature
-   men's XGBoost model.
-2. Finalize the men's and women's XGBoost configurations.
-3. Train the selected configurations using the appropriate historical data.
-4. Construct the same features for the 2026 matchup prediction set.
-5. Generate 2026 matchup probabilities.
-6. Compare XGBoost against the other group members' models using the same
-   temporal validation procedure.
-7. Investigate an ensemble only if combining models improves validation
-   Brier.
+Our next priority is improving performance on unseen tournament seasons and ensuring predicted probabilities are reliable.
+
+Instead of continuously adding features, the group should focus on model complexity, regularization, clipping, calibration and carefully evaluated ensembles.
+
+### Step 1 — Establish Comparable Model Results
+
+Each teammate should record:
+
+- Algorithm used
+- Feature set
+- Hyperparameters
+- Validation Brier for each year
+- Mean validation Brier
+- Random seed, where applicable
+
+Use the same temporal validation years so results remain comparable.
+
+Keep men's and women's evaluations separate.
+
+### Step 2 — Improve Generalization Through Regularization
+
+Some models may overfit historical tournament data, particularly because the number of labelled tournament games is relatively small.
+
+Potential approaches:
+
+**XGBoost / Gradient Boosting**
+
+- Shallower trees
+- Fewer boosting rounds
+- Early stopping
+- Stronger L1/L2 regularization
+- Larger minimum child weight or leaf size
+- Appropriate subsampling
+
+**Logistic Regression**
+
+- Tune regularization strength
+- Standardize features inside the training pipeline
+- Avoid unnecessarily complex feature interactions
+
+**Decision Trees / Random Forests**
+
+- Limit tree depth
+- Increase minimum samples per leaf
+- Control the number of features considered per split
+- Compare training and validation performance
+
+Hyperparameters and stopping rounds should be chosen using earlier historical data within each temporal validation fold.
+
+Do not use the outer validation year's actual outcomes to select its own hyperparameters.
+
+Regularization can reduce overfitting, but excessive regularization may cause underfitting.
+
+### Step 3 — Test Probability Clipping
+
+Since Kaggle evaluates Brier score, extremely confident incorrect predictions can significantly increase error.
+
+One simple approach is:
+
+```python
+import numpy as np
+
+clipped_predictions = np.clip(
+    predictions,
+    0.02,
+    0.98
+)
+```
+
+Compare Brier scores before and after clipping.
+
+**Important:** Clipping does not guarantee an improvement. It can worsen predictions when the model's extreme probabilities are accurate.
+
+Record how many predictions are actually affected.
+
+### Step 4 — Test Probability Calibration
+
+Calibration aims to make predicted probabilities better reflect actual winning frequencies.
+
+For example, among matchups assigned approximately 70% probability, the corresponding team should win approximately 70% of the time over sufficiently many comparable games.
+
+Potential techniques:
+
+- Sigmoid / Platt calibration
+- Isotonic regression
+
+Begin with simpler calibration approaches because our tournament training datasets are relatively small.
+
+**Avoid data leakage:**
+
+- Generate out-of-sample predictions using historical validation folds.
+- Fit the calibration model using earlier held-out predictions and their true outcomes.
+- Evaluate the calibrated probabilities on later seasons not used to fit the calibrator.
+
+Do not fit and evaluate a calibrator on the same observations.
+
+Compare uncalibrated and calibrated Brier scores.
+
+### Step 5 — Evaluate Model Ensembles
+
+After evaluating individual models, consider blending probabilities from different algorithms.
+
+For example:
+
+```python
+ensemble_predictions = (
+    0.5 * logistic_predictions
+    + 0.5 * xgboost_predictions
+)
+```
+
+Ensembling may improve prediction quality when models make complementary errors.
+
+Compare the ensemble against each individual model using the same temporal validation procedure.
+
+Avoid repeatedly tuning ensemble weights against the evaluation fold.
+
+### Step 6 — Finalize Feature Sets and Training
+
+Once feature sets and modelling procedures have been selected:
+
+1. Freeze the feature engineering definitions.
+2. Freeze the selected hyperparameters and calibration strategy.
+3. Train the final models on the permitted historical tournament data.
+4. Generate the same pre-tournament features for the 2026 matchups.
+5. Verify feature availability and missing-value handling.
+6. Produce win probabilities in the required Kaggle submission format.
+
+The historical processed matchup CSVs are not themselves the 2026 prediction dataset.
+
+A separate inference dataset must be generated using the same feature definitions.
+
+### Step 7 — Document Experiments for the Final Report
+
+Maintain a consistent experiment log containing:
+
+- Research question or motivation
+- Feature configuration
+- Model configuration
+- Validation protocol
+- Individual validation-year Brier scores
+- Mean Brier score
+- Any retrospective holdout results
+- Interpretation
+- Limitations
+- Decision to retain or reject the change
+
+Record negative results as well as improvements.
+
+This will help justify our modelling decisions in the final project report.
+
+---
+
+## 9. Generalization and Evaluation Notes
+
+Several experiments improved development cross-validation performance but did not produce corresponding improvements in later holdout performance.
+
+Potential explanations include:
+
+- Limited tournament training samples
+- Overfitting to repeatedly used validation seasons
+- Correlated or redundant features
+- Excessively complex models
+- Differences in tournament outcomes and predictability across seasons
+- Poor probability calibration
+
+A lower Brier score on a small set of development seasons does not guarantee better performance in future competitions.
+
+Our goal should be to develop models that produce **reliable probabilities on unseen tournament games**, rather than optimizing repeatedly for a particular historical validation period.
+
+
