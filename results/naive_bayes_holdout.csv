@@ -1,0 +1,7 @@
+Gender,FeatureSet,Model,Overall,2022,2023,2024,2025
+men,LogMasseyRankDiff only,GaussianNB (single-feature baseline),0.193,0.2186,0.222,0.19,0.1412
+men,base+LogMassey+AdjStrength,Plain GaussianNB,0.247,0.3262,0.2424,0.2564,0.163
+men,base+LogMassey+AdjStrength,PCA(4) + GNB (final),0.196,0.2265,0.2143,0.1928,0.1504
+women,SeedDiff only,GaussianNB (single-feature baseline),0.1484,0.1779,0.1773,0.1168,0.1218
+women,base+AdjStrength,Plain GaussianNB,0.1641,0.1492,0.1949,0.1784,0.1337
+women,base+AdjStrength,PCA(3) + GNB (final),0.1451,0.1663,0.1684,0.1245,0.121
