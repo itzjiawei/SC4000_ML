@@ -1,0 +1,5 @@
+Model,ValidationSeason,TrainingGames,ValidationGames,BrierScore
+Women_Base4_XGBoost,2017,441,63,0.15773017815459708
+Women_Base4_XGBoost,2018,504,63,0.16890356628851239
+Women_Base4_XGBoost,2019,567,63,0.1253191555556224
+Women_Base4_XGBoost,2021,630,63,0.13405938458242733

@@ -1,0 +1,5 @@
+Model,ValidationSeason,InnerValidationSeason,SelectedTrees,InnerBrier,OuterBrier,TrainingGames,ValidationGames,ReachedTreeCap
+Men_LogMassey_EarlyStopping,2017,2016,199,0.19146362570511213,0.16787163258199783,914,67,False
+Men_LogMassey_EarlyStopping,2018,2017,497,0.1596954630971005,0.2225795413961934,981,67,False
+Men_LogMassey_EarlyStopping,2019,2018,118,0.20798456114142,0.1572813641011614,1048,67,False
+Men_LogMassey_EarlyStopping,2021,2019,483,0.13557285974429084,0.20215326700906158,1115,66,False
