@@ -1,0 +1,5 @@
+Model,ValidationSeason,TrainingGames,ValidationGames,BrierScore
+Men_LogMassey_XGBoost,2017,914,67,0.1646222714835342
+Men_LogMassey_XGBoost,2018,981,67,0.21459501735374584
+Men_LogMassey_XGBoost,2019,1048,67,0.13979032135377992
+Men_LogMassey_XGBoost,2021,1115,66,0.20466541892205647
