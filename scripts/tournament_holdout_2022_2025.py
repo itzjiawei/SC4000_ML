@@ -1,4 +1,9 @@
-"""Fixed historical holdout; run from any directory with Python 3.13.
+"""RETIRED: use `python -m scripts.report_2022_2025` instead (shared features and CV, every model).
+Kept only for reference. It cannot pass its own LR check: line 79 builds LogMasseyRankDiff with
+np.log, but Kat's saved S5 predictions (scripts/generate_logreg_oof.py) use np.log1p with C=100.
+See results/shared_cv/STAGE_STUDIES.md.
+
+Fixed historical holdout; run from any directory with Python 3.13.
 
 First verifies reconstructed LR against every saved OOF prediction. No tuning.
 See results/holdout_2022_2025_report.md for source provenance and limitations.

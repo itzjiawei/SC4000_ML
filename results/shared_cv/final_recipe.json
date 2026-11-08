@@ -1,0 +1,17 @@
+{
+  "models": [
+    "lr_v2",
+    "xgb_v2",
+    "nb_v2",
+    "rf_owner"
+  ],
+  "weights": [
+    0.6,
+    0.4,
+    0.0,
+    0.0
+  ],
+  "space": "prob",
+  "temperature": 1.0,
+  "clip": 0.0
+}

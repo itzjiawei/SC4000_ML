@@ -1,5 +1,11 @@
 # Historical holdout: verification status
 
+> **RETIRED.** The 2022–2025 results now come from the shared pipeline:
+> `python -m scripts.report_2022_2025 xgb_owner lr_s5 --blend xgb_owner lr_s5`, which writes
+> `results/shared_cv/report_2022_2025.csv`. The "missing" men's S5 source below was found:
+> `scripts/generate_logreg_oof.py` (log1p Massey ranks, C=100), which reproduces the saved file to within 4e-16.
+> Everything below is kept as a historical record.
+
 Incomplete: the merged `notebooks/logistic_regression.ipynb` contains 28 cells (indices 0–27), with men's S1–S4 only. It has no LogMasseyRankDiff/S5 implementation. The saved men's S5 OOF file exists, but does not identify C or pipeline parameters. The men's S5 source/configuration is required before running the final experiment. No existing outputs were overwritten and no ensemble holdout results have been published.
 
 ## Completed verification

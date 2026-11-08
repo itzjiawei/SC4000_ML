@@ -1,0 +1,5 @@
+Gender,Model,ReportBrier
+men,"S1 as coded: RandomForest(n=100, depth=5)",0.20003159936133022
+men,S1 corrected: DecisionTree(depth=5),0.2178729224451248
+women,"S1 as coded: RandomForest(n=100, depth=5)",0.1501254453817213
+women,S1 corrected: DecisionTree(depth=5),0.18218395371835697
